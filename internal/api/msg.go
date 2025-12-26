@@ -199,6 +199,36 @@ func (m *MessageApi) DeleteMsgPhysical(c *gin.Context) {
 	a2r.Call(c, msg.MsgClient.DeleteMsgPhysical, m.Client)
 }
 
+func (m *MessageApi) DeleteUserMsgsByTime(c *gin.Context) {
+	var req apistruct.DeleteUserMsgsByTimeReq
+	if err := c.BindJSON(&req); err != nil {
+		apiresp.GinError(c, errs.ErrArgs.WithDetail(err.Error()).Wrap())
+		return
+	}
+	// 将 string 类型的 isSyncSelf 和 isSyncOther 转换为 bool
+	var isSyncSelf, isSyncOther bool
+	if req.DeleteSyncOpt != nil {
+		isSyncSelf = req.DeleteSyncOpt.IsSyncSelf == "true" || req.DeleteSyncOpt.IsSyncSelf == "1"
+		isSyncOther = req.DeleteSyncOpt.IsSyncOther == "true" || req.DeleteSyncOpt.IsSyncOther == "1"
+	}
+	// 构建 RPC 请求
+	rpcReq := &msg.DeleteUserMsgsByTimeReq{
+		UserID: req.UserID,
+		Day:    req.Day,
+		DeleteSyncOpt: &msg.DeleteSyncOpt{
+			IsSyncSelf:  isSyncSelf,
+			IsSyncOther: isSyncOther,
+		},
+	}
+	// 调用 RPC
+	resp, err := m.Client.DeleteUserMsgsByTime(c, rpcReq)
+	if err != nil {
+		apiresp.GinError(c, err)
+		return
+	}
+	apiresp.GinSuccess(c, resp)
+}
+
 func (m *MessageApi) getSendMsgReq(c *gin.Context, req apistruct.SendMsg) (sendMsgReq *msg.SendMsgReq, err error) {
 	var data any
 	log.ZDebug(c, "getSendMsgReq", "req", req.Content)

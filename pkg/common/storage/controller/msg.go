@@ -99,6 +99,7 @@ type CommonMsgDatabase interface {
 	DeleteDoc(ctx context.Context, docID string) error
 
 	GetLastMessageSeqByTime(ctx context.Context, conversationID string, time int64) (int64, error)
+	GetSeqsByTime(ctx context.Context, conversationID string, time int64) ([]int64, error)
 
 	GetLastMessage(ctx context.Context, conversationIDS []string, userID string) (map[string]*sdkws.MsgData, error)
 }
@@ -743,6 +744,10 @@ func (db *commonMsgDatabase) DeleteDoc(ctx context.Context, docID string) error 
 
 func (db *commonMsgDatabase) GetLastMessageSeqByTime(ctx context.Context, conversationID string, time int64) (int64, error) {
 	return db.msgDocDatabase.GetLastMessageSeqByTime(ctx, conversationID, time)
+}
+
+func (db *commonMsgDatabase) GetSeqsByTime(ctx context.Context, conversationID string, time int64) ([]int64, error) {
+	return db.msgDocDatabase.GetSeqsByTime(ctx, conversationID, time)
 }
 
 func (db *commonMsgDatabase) handlerDeleteAndRevoked(ctx context.Context, userID string, msgs []*model.MsgInfoModel) {

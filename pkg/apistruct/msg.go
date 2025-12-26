@@ -165,3 +165,14 @@ type AtInfo struct {
 	AtUserID      string `json:"atUserID,omitempty"`
 	GroupNickname string `json:"groupNickname,omitempty"`
 }
+
+type DeleteSyncOpt struct {
+	IsSyncSelf  string `json:"isSyncSelf,omitempty"`
+	IsSyncOther string `json:"isSyncOther,omitempty"`
+}
+
+type DeleteUserMsgsByTimeReq struct {
+	UserID        string        `json:"userID" binding:"required"`
+	Day           int32         `json:"day" binding:"required"`
+	DeleteSyncOpt *DeleteSyncOpt `json:"deleteSyncOpt" binding:"required"`
+}

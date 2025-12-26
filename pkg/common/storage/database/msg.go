@@ -41,4 +41,5 @@ type Msg interface {
 	GetLastMessageSeqByTime(ctx context.Context, conversationID string, time int64) (int64, error)
 	GetLastMessage(ctx context.Context, conversationID string) (*model.MsgInfoModel, error)
 	FindSeqs(ctx context.Context, conversationID string, seqs []int64) ([]*model.MsgInfoModel, error)
+	GetSeqsByTime(ctx context.Context, conversationID string, time int64) ([]int64, error)
 }

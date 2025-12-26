@@ -115,6 +115,63 @@ func (m *msgServer) DeleteMsgPhysical(ctx context.Context, req *msg.DeleteMsgPhy
 	return &msg.DeleteMsgPhysicalResp{}, nil
 }
 
+func (m *msgServer) DeleteUserMsgsByTime(ctx context.Context, req *msg.DeleteUserMsgsByTimeReq) (*msg.DeleteUserMsgsByTimeResp, error) {
+	if err := authverify.CheckAccess(ctx, req.UserID); err != nil {
+		return nil, err
+	}
+	// 获取用户的所有会话ID
+	conversationIDs, err := m.ConversationLocalCache.GetConversationIDs(ctx, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if len(conversationIDs) == 0 {
+		return &msg.DeleteUserMsgsByTimeResp{}, nil
+	}
+	// 计算目标时间戳（当前时间减去指定天数）
+	targetTime := timeutil.GetCurrentTimestampByMill() - int64(req.Day)*24*60*60*1000
+	isSyncSelf, isSyncOther := m.validateDeleteSyncOpt(req.DeleteSyncOpt)
+	// 获取所有会话的信息
+	conversations, err := m.conversationClient.GetConversationsByConversationIDs(ctx, conversationIDs)
+	if err != nil {
+		return nil, err
+	}
+	// 遍历每个会话，删除指定时间之前的消息
+	for _, conversation := range conversations {
+		// 获取该会话中指定时间之前的所有消息序列号
+		seqs, err := m.MsgDatabase.GetSeqsByTime(ctx, conversation.ConversationID, targetTime)
+		if err != nil {
+			log.ZWarn(ctx, "GetSeqsByTime failed", "conversationID", conversation.ConversationID, "error", err)
+			continue
+		}
+		if len(seqs) == 0 {
+			continue
+		}
+		if isSyncOther {
+			// 物理删除消息
+			if err := m.MsgDatabase.DeleteMsgsPhysicalBySeqs(ctx, conversation.ConversationID, seqs); err != nil {
+				log.ZWarn(ctx, "DeleteMsgsPhysicalBySeqs failed", "conversationID", conversation.ConversationID, "error", err)
+				continue
+			}
+			// 发送通知给对方
+			tips := &sdkws.DeleteMsgsTips{UserID: req.UserID, ConversationID: conversation.ConversationID, Seqs: seqs}
+			m.notificationSender.NotificationWithSessionType(ctx, req.UserID, m.conversationAndGetRecvID(conversation, req.UserID),
+				constant.DeleteMsgsNotification, conversation.ConversationType, tips)
+		} else {
+			// 仅删除用户自己的消息记录
+			if err := m.MsgDatabase.DeleteUserMsgsBySeqs(ctx, req.UserID, conversation.ConversationID, seqs); err != nil {
+				log.ZWarn(ctx, "DeleteUserMsgsBySeqs failed", "conversationID", conversation.ConversationID, "error", err)
+				continue
+			}
+			// 如果设置了同步自身，发送通知给自己
+			if isSyncSelf {
+				tips := &sdkws.DeleteMsgsTips{UserID: req.UserID, ConversationID: conversation.ConversationID, Seqs: seqs}
+				m.notificationSender.NotificationWithSessionType(ctx, req.UserID, req.UserID, constant.DeleteMsgsNotification, constant.SingleChatType, tips)
+			}
+		}
+	}
+	return &msg.DeleteUserMsgsByTimeResp{}, nil
+}
+
 func (m *msgServer) clearConversation(ctx context.Context, conversationIDs []string, userID string, deleteSyncOpt *msg.DeleteSyncOpt) error {
 	conversations, err := m.conversationClient.GetConversationsByConversationIDs(ctx, conversationIDs)
 	if err != nil {

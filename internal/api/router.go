@@ -268,6 +268,7 @@ func newGinRouter(ctx context.Context, client discovery.SvcDiscoveryRegistry, cf
 		msgGroup.POST("/delete_msgs", m.DeleteMsgs)
 		msgGroup.POST("/delete_msg_phsical_by_seq", m.DeleteMsgPhysicalBySeq)
 		msgGroup.POST("/delete_msg_physical", m.DeleteMsgPhysical)
+		msgGroup.POST("/delete_user_msgs_by_time", m.DeleteUserMsgsByTime)
 
 		msgGroup.POST("/batch_send_msg", m.BatchSendMsg)
 		msgGroup.POST("/send_simple_msg", m.SendSimpleMessage)

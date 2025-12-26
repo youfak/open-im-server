@@ -1003,6 +1003,58 @@ func (m *MsgMgo) GetLastMessageSeqByTime(ctx context.Context, conversationID str
 	return seq, nil
 }
 
+func (m *MsgMgo) GetSeqsByTime(ctx context.Context, conversationID string, time int64) ([]int64, error) {
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"doc_id": bson.M{
+					"$regex": fmt.Sprintf("^%s", conversationID),
+				},
+			},
+		},
+		{
+			"$unwind": "$msgs",
+		},
+		{
+			"$match": bson.M{
+				"msgs.msg.send_time": bson.M{
+					"$lte": time,
+				},
+				"msgs.msg.status": bson.M{
+					"$lt": constant.MsgStatusHasDeleted,
+				},
+			},
+		},
+		{
+			"$project": bson.M{
+				"_id":        0,
+				"msg_seq":   "$msgs.msg.seq",
+				"send_time": "$msgs.msg.send_time",
+			},
+		},
+		{
+			"$sort": bson.M{
+				"msg_seq": 1,
+			},
+		},
+	}
+	type Result struct {
+		MsgSeq   int64 `bson:"msg_seq"`
+		SendTime int64 `bson:"send_time"`
+	}
+	res, err := mongoutil.Aggregate[*Result](ctx, m.coll, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	seqs := make([]int64, 0, len(res))
+	for _, v := range res {
+		if v.MsgSeq > 0 {
+			seqs = append(seqs, v.MsgSeq)
+		}
+	}
+	return seqs, nil
+}
+
 func (m *MsgMgo) GetLastMessage(ctx context.Context, conversationID string) (*model.MsgInfoModel, error) {
 	pipeline := []bson.M{
 		{
